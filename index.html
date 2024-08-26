@@ -6,31 +6,27 @@
     <title>Website 2</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
             margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #fafafa;
+            font-family: Arial, sans-serif;
+        }
+        #content {
             padding: 20px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
     </style>
 </head>
 <body>
-    <h1>Website 2</h1>
-    <script>
-        async function handleRequest(request) {
-            const { url } = await request.json();
-            const apiUrl = `https://api.codetabs.com/v1/tmp/?quest=${encodeURIComponent(url)}`;
-            const response = await fetch(apiUrl);
-            const data = await response.text();
-            return new Response(data, {
-                headers: { 'Content-Type': 'text/html' },
-            });
-        }
-
-        addEventListener('fetch', event => {
-            event.respondWith(handleRequest(event.request));
-        });
-    </script>
+    <div id="content">
+        <h1>Welcome to Website 2</h1>
+        <p>This is the content rendered by Website 2.</p>
+    </div>
 </body>
 </html>

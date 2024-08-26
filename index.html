@@ -9,7 +9,6 @@
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
-            word-wrap: break-word;
         }
     </style>
 </head>
@@ -40,30 +39,24 @@
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(data, 'text/html');
 
-                    const promises = [];
-
-                    // Fetch and inject all linked CSS files
+                    // Fetch and inject CSS files
                     const linkElements = doc.querySelectorAll('link[rel="stylesheet"]');
-                    linkElements.forEach(link => {
+                    const cssPromises = Array.from(linkElements).map(link => {
                         const href = link.getAttribute('href');
-                        if (href) {
-                            promises.push(fetchResource(href, 'css'));
-                        }
+                        return fetchResource(href, 'css');
                     });
 
-                    // Fetch and inject all linked JS files
+                    // Fetch and inject JS files
                     const scriptElements = doc.querySelectorAll('script[src]');
-                    scriptElements.forEach(script => {
+                    const jsPromises = Array.from(scriptElements).map(script => {
                         const src = script.getAttribute('src');
-                        if (src) {
-                            promises.push(fetchResource(src, 'js'));
-                        }
+                        return fetchResource(src, 'js');
                     });
 
-                    Promise.all(promises)
+                    Promise.all([...cssPromises, ...jsPromises])
                         .then(() => {
                             document.open();
-                            document.write(data);
+                            document.write(doc.documentElement.outerHTML);
                             document.close();
                         })
                         .catch(error => {
@@ -92,8 +85,8 @@
         function fetchResource(resourceUrl, type) {
             return new Promise((resolve, reject) => {
                 const proxyIndex = attempt % proxies.length;
-                const fullUrl = new URL(resourceUrl, url).href;
-                fetch(proxies[proxyIndex] + encodeURIComponent(fullUrl))
+                const absoluteUrl = new URL(resourceUrl, url).href; // Resolve relative URLs
+                fetch(proxies[proxyIndex] + encodeURIComponent(absoluteUrl))
                     .then(response => {
                         if (!response.ok) {
                             throw new Error('Network response was not ok');

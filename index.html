@@ -39,7 +39,43 @@
                     return response.text();
                 })
                 .then(data => {
-                    processHtml(data);
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(data, 'text/html');
+
+                    // Fetch and inject CSS files
+                    const linkElements = doc.querySelectorAll('link[rel="stylesheet"]');
+                    const cssPromises = Array.from(linkElements).map(link => {
+                        const href = link.getAttribute('href');
+                        return fetchResource(href, 'css');
+                    });
+
+                    // Fetch and inject JS files
+                    const scriptElements = doc.querySelectorAll('script[src]');
+                    const jsPromises = Array.from(scriptElements).map(script => {
+                        const src = script.getAttribute('src');
+                        return fetchResource(src, 'js');
+                    });
+
+                    // Fetch and inject media files
+                    const mediaElements = doc.querySelectorAll('img[src], video[src], audio[src]');
+                    const mediaPromises = Array.from(mediaElements).map(media => {
+                        const src = media.getAttribute('src');
+                        return fetchResource(src, 'media');
+                    });
+
+                    // Wait for all resources to be fetched and injected
+                    Promise.all([...cssPromises, ...jsPromises, ...mediaPromises])
+                        .then(() => {
+                            // Replace document content with fetched content
+                            const newDoc = document.open();
+                            newDoc.write(doc.documentElement.outerHTML);
+                            newDoc.close();
+                        })
+                        .catch(error => {
+                            console.error('Resource fetch error:', error);
+                            proxyIndex++;
+                            fetchWithProxy();
+                        });
                 })
                 .catch(error => {
                     console.error('Fetch error:', error);
@@ -48,58 +84,10 @@
                 });
         }
 
-        function processHtml(html) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-
-            // Inject CSS
-            const cssLinks = doc.querySelectorAll('link[rel="stylesheet"]');
-            const cssPromises = Array.from(cssLinks).map(link => {
-                return fetchAndInjectCss(link.getAttribute('href'));
-            });
-
-            // Inject JS
-            const scriptLinks = doc.querySelectorAll('script[src]');
-            const jsPromises = Array.from(scriptLinks).map(script => {
-                return fetchAndInjectJs(script.getAttribute('src'));
-            });
-
-            // Handle inline styles and scripts
-            const inlineStyles = doc.querySelectorAll('style');
-            inlineStyles.forEach(style => {
-                document.head.appendChild(style.cloneNode(true));
-            });
-
-            const inlineScripts = doc.querySelectorAll('script:not([src])');
-            inlineScripts.forEach(script => {
-                document.body.appendChild(script.cloneNode(true));
-            });
-
-            // Handle images and other media
-            const mediaUrls = Array.from(doc.querySelectorAll('img, link[rel="icon"], video, audio')).map(media => {
-                const src = media.src || media.href;
-                return { media, src: new URL(src, url).href };
-            });
-
-            // Inject all media
-            const mediaPromises = mediaUrls.map(({ media, src }) => {
-                return fetchAndInjectMedia(media, src);
-            });
-
-            // Wait for all CSS, JS, and media to be injected
-            Promise.all([...cssPromises, ...jsPromises, ...mediaPromises])
-                .then(() => {
-                    // Replace document content with fetched content
-                    document.getElementById('content').innerHTML = doc.body.innerHTML;
-                })
-                .catch(error => {
-                    console.error('Resource fetch error:', error);
-                });
-        }
-
-        function fetchAndInjectCss(href) {
+        function fetchResource(resourceUrl, type) {
             return new Promise((resolve, reject) => {
-                const absoluteUrl = new URL(href, url).href;
+                // Resolve relative URLs
+                const absoluteUrl = new URL(resourceUrl, url).href;
                 const proxyUrl = proxies[proxyIndex] + encodeURIComponent(absoluteUrl);
 
                 fetch(proxyUrl)
@@ -109,56 +97,26 @@
                         }
                         return response.text();
                     })
-                    .then(css => {
-                        const style = document.createElement('style');
-                        style.textContent = css;
-                        document.head.appendChild(style);
-                        resolve();
-                    })
-                    .catch(reject);
-            });
-        }
-
-        function fetchAndInjectJs(src) {
-            return new Promise((resolve, reject) => {
-                const absoluteUrl = new URL(src, url).href;
-                const proxyUrl = proxies[proxyIndex] + encodeURIComponent(absoluteUrl);
-
-                fetch(proxyUrl)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
+                    .then(content => {
+                        if (type === 'css') {
+                            const style = document.createElement('style');
+                            style.textContent = content;
+                            document.head.appendChild(style);
+                        } else if (type === 'js') {
+                            const script = document.createElement('script');
+                            script.textContent = content;
+                            document.body.appendChild(script);
+                        } else if (type === 'media') {
+                            // Media files do not need to be explicitly handled
+                            // They should be loaded as part of the HTML content
+                            // No additional injection required
                         }
-                        return response.text();
-                    })
-                    .then(js => {
-                        const script = document.createElement('script');
-                        script.textContent = js;
-                        document.body.appendChild(script);
                         resolve();
                     })
-                    .catch(reject);
-            });
-        }
-
-        function fetchAndInjectMedia(media, src) {
-            return new Promise((resolve, reject) => {
-                const proxyUrl = proxies[proxyIndex] + encodeURIComponent(src);
-
-                fetch(proxyUrl)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.blob();
-                    })
-                    .then(blob => {
-                        const objectURL = URL.createObjectURL(blob);
-                        media.src = objectURL;
-                        media.href = objectURL; // For <link> elements with rel="icon"
-                        resolve();
-                    })
-                    .catch(reject);
+                    .catch(error => {
+                        console.error(`Failed to fetch ${type} resource:`, error);
+                        reject();
+                    });
             });
         }
 

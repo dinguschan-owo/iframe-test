@@ -35,15 +35,42 @@
             const box = document.getElementById('box');
             if (url) {
                 try {
+                    // Fetch the HTML content
                     const response = await fetch(url);
-                    const content = await response.text();
-                    // Create a temporary container to inject HTML content
+                    const text = await response.text();
+                    
+                    // Create a temporary container to parse HTML content
                     const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = content;
-                    // Append the content to the box
+                    tempDiv.innerHTML = text;
+
+                    // Extract and load CSS files
+                    const links = tempDiv.querySelectorAll('link[rel="stylesheet"]');
+                    links.forEach(link => {
+                        const href = link.getAttribute('href');
+                        if (href) {
+                            const cssLink = document.createElement('link');
+                            cssLink.rel = 'stylesheet';
+                            cssLink.href = new URL(href, url).href;
+                            document.head.appendChild(cssLink);
+                        }
+                    });
+
+                    // Extract and load JavaScript files
+                    const scripts = tempDiv.querySelectorAll('script[src]');
+                    scripts.forEach(script => {
+                        const src = script.getAttribute('src');
+                        if (src) {
+                            const jsScript = document.createElement('script');
+                            jsScript.src = new URL(src, url).href;
+                            document.body.appendChild(jsScript);
+                        }
+                    });
+
+                    // Inject the HTML content into the box
                     while (tempDiv.firstChild) {
                         box.appendChild(tempDiv.firstChild);
                     }
+
                 } catch (error) {
                     box.innerHTML = 'Failed to load content.';
                 }

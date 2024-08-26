@@ -56,15 +56,8 @@
                         return fetchResource(src, 'js');
                     });
 
-                    // Fetch and inject media files
-                    const mediaElements = doc.querySelectorAll('img[src], video[src], audio[src]');
-                    const mediaPromises = Array.from(mediaElements).map(media => {
-                        const src = media.getAttribute('src');
-                        return fetchResource(src, 'media');
-                    });
-
                     // Wait for all resources to be fetched and injected
-                    Promise.all([...cssPromises, ...jsPromises, ...mediaPromises])
+                    Promise.all([...cssPromises, ...jsPromises])
                         .then(() => {
                             // Replace document content with fetched content
                             const newDoc = document.open();
@@ -86,7 +79,6 @@
 
         function fetchResource(resourceUrl, type) {
             return new Promise((resolve, reject) => {
-                // Resolve relative URLs
                 const absoluteUrl = new URL(resourceUrl, url).href;
                 const proxyUrl = proxies[proxyIndex] + encodeURIComponent(absoluteUrl);
 
@@ -106,10 +98,6 @@
                             const script = document.createElement('script');
                             script.textContent = content;
                             document.body.appendChild(script);
-                        } else if (type === 'media') {
-                            // Media files do not need to be explicitly handled
-                            // They should be loaded as part of the HTML content
-                            // No additional injection required
                         }
                         resolve();
                     })

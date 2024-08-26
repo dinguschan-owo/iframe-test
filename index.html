@@ -6,100 +6,29 @@
     <title>Website 2</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
             margin: 0;
-            padding: 0;
-            overflow: hidden;
-            height: 100vh;
-            width: 100vw;
-        }
-        .box {
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
+            padding: 20px;
+            display: none;
         }
     </style>
 </head>
 <body>
-    <div class="box" id="box">
-        <!-- Content from Website 1 will be displayed here -->
-    </div>
-
+    <h1>Fetching...</h1>
     <script>
-        const CORS_PROXY = 'https://api.codetabs.com/v1/tmp/?quest=';
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetUrl = urlParams.get('url');
 
-        async function getUrlParams() {
-            const params = new URLSearchParams(window.location.search);
-            return params.get('url');
+        if (targetUrl) {
+            fetch('https://api.codetabs.com/v1/tmp/?quest=' + encodeURIComponent(targetUrl))
+                .then(response => response.text())
+                .then(data => {
+                    document.open();
+                    document.write(data);
+                    document.close();
+                })
+                .catch(err => console.error('Error fetching the URL:', err));
         }
-
-        async function fetchResource(url) {
-            const response = await fetch(CORS_PROXY + encodeURIComponent(url));
-            if (!response.ok) {
-                throw new Error(`Failed to fetch ${url}`);
-            }
-            return await response.text();
-        }
-
-        function injectCSS(cssText) {
-            const style = document.createElement('style');
-            style.textContent = cssText;
-            document.head.appendChild(style);
-        }
-
-        function injectJavaScript(jsText) {
-            const script = document.createElement('script');
-            script.textContent = jsText;
-            document.body.appendChild(script);
-        }
-
-        async function loadContent() {
-            const url = await getUrlParams();
-            const box = document.getElementById('box');
-            if (url) {
-                try {
-                    // Fetch the HTML content via CORS proxy
-                    const htmlText = await fetchResource(url);
-
-                    // Create a temporary container to parse HTML content
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = htmlText;
-
-                    // Extract and load CSS files
-                    const cssLinks = tempDiv.querySelectorAll('link[rel="stylesheet"]');
-                    for (let link of cssLinks) {
-                        const href = link.getAttribute('href');
-                        if (href) {
-                            const cssUrl = new URL(href, url).href;
-                            const cssText = await fetchResource(cssUrl);
-                            injectCSS(cssText);
-                        }
-                    }
-
-                    // Extract and load JavaScript files
-                    const scripts = tempDiv.querySelectorAll('script[src]');
-                    for (let script of scripts) {
-                        const src = script.getAttribute('src');
-                        if (src) {
-                            const jsUrl = new URL(src, url).href;
-                            const jsText = await fetchResource(jsUrl);
-                            injectJavaScript(jsText);
-                        }
-                    }
-
-                    // Inject the HTML content into the box
-                    while (tempDiv.firstChild) {
-                        box.appendChild(tempDiv.firstChild);
-                    }
-
-                } catch (error) {
-                    box.innerHTML = 'Failed to load content.';
-                }
-            } else {
-                box.innerHTML = 'No URL provided.';
-            }
-        }
-
-        window.onload = loadContent;
     </script>
 </body>
 </html>

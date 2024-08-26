@@ -46,7 +46,7 @@
                     const cssContent = await fetchResource(href);
                     const style = document.createElement('style');
                     style.textContent = cssContent;
-                    link.parentNode.replaceChild(style, link);
+                    document.head.appendChild(style); // Append CSS to head
                 });
 
                 // Handle internal and external JS files
@@ -56,7 +56,7 @@
                     const jsContent = await fetchResource(src);
                     const newScript = document.createElement('script');
                     newScript.textContent = jsContent;
-                    script.parentNode.replaceChild(newScript, script);
+                    document.body.appendChild(newScript); // Append JS to body
                 });
 
                 // Handle external resources like fonts, icons, etc.
@@ -80,6 +80,10 @@
                 document.open();
                 document.write(doc.documentElement.outerHTML);
                 document.close();
+
+                // Re-fetch CSS and JS for custom elements
+                refetchExternalResources(doc);
+
             } catch (error) {
                 console.error('Fetch error:', error);
                 proxyIndex++;
@@ -119,6 +123,24 @@
                 proxyIndex++;
                 fetchWithProxy();
             }
+        }
+
+        // Re-fetch CSS and JS for custom elements
+        async function refetchExternalResources(doc) {
+            const linkElements = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
+            const scriptElements = Array.from(doc.querySelectorAll('script[src]'));
+
+            linkElements.forEach(link => {
+                if (link.getAttribute('href').startsWith('http')) {
+                    fetchAndInjectExternalResource(link.getAttribute('href'), 'css');
+                }
+            });
+
+            scriptElements.forEach(script => {
+                if (script.getAttribute('src').startsWith('http')) {
+                    fetchAndInjectExternalResource(script.getAttribute('src'), 'js');
+                }
+            });
         }
 
         if (url) {

@@ -64,16 +64,32 @@
                 return fetchAndInjectJs(script.getAttribute('src'));
             });
 
-            // Handle images and other assets
-            const imgTags = doc.querySelectorAll('img[src]');
-            const imgPromises = Array.from(imgTags).map(img => {
-                return fetchAndReplaceImage(img);
+            // Handle inline styles and scripts
+            const inlineStyles = doc.querySelectorAll('style');
+            inlineStyles.forEach(style => {
+                document.head.appendChild(style.cloneNode(true));
             });
 
-            // Wait for all CSS, JS, and images to be injected
-            Promise.all([...cssPromises, ...jsPromises, ...imgPromises])
+            const inlineScripts = doc.querySelectorAll('script:not([src])');
+            inlineScripts.forEach(script => {
+                document.body.appendChild(script.cloneNode(true));
+            });
+
+            // Handle images and other media
+            const mediaUrls = Array.from(doc.querySelectorAll('img, link[rel="icon"], video, audio')).map(media => {
+                const src = media.src || media.href;
+                return { media, src: new URL(src, url).href };
+            });
+
+            // Inject all media
+            const mediaPromises = mediaUrls.map(({ media, src }) => {
+                return fetchAndInjectMedia(media, src);
+            });
+
+            // Wait for all CSS, JS, and media to be injected
+            Promise.all([...cssPromises, ...jsPromises, ...mediaPromises])
                 .then(() => {
-                    // Inject HTML content
+                    // Replace document content with fetched content
                     document.getElementById('content').innerHTML = doc.body.innerHTML;
                 })
                 .catch(error => {
@@ -125,11 +141,9 @@
             });
         }
 
-        function fetchAndReplaceImage(img) {
+        function fetchAndInjectMedia(media, src) {
             return new Promise((resolve, reject) => {
-                const src = img.getAttribute('src');
-                const absoluteUrl = new URL(src, url).href;
-                const proxyUrl = proxies[proxyIndex] + encodeURIComponent(absoluteUrl);
+                const proxyUrl = proxies[proxyIndex] + encodeURIComponent(src);
 
                 fetch(proxyUrl)
                     .then(response => {
@@ -140,7 +154,8 @@
                     })
                     .then(blob => {
                         const objectURL = URL.createObjectURL(blob);
-                        img.setAttribute('src', objectURL);
+                        media.src = objectURL;
+                        media.href = objectURL; // For <link> elements with rel="icon"
                         resolve();
                     })
                     .catch(reject);

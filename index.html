@@ -64,14 +64,14 @@
                 return fetchAndInjectJs(script.getAttribute('src'));
             });
 
-            // Fetch and handle images
-            const images = doc.querySelectorAll('img');
-            const imagePromises = Array.from(images).map(img => {
-                return fetchAndInjectImage(img);
+            // Handle images and other assets
+            const imgTags = doc.querySelectorAll('img[src]');
+            const imgPromises = Array.from(imgTags).map(img => {
+                return fetchAndReplaceImage(img);
             });
 
-            // Wait for all resources to be fetched and injected
-            Promise.all([...cssPromises, ...jsPromises, ...imagePromises])
+            // Wait for all CSS, JS, and images to be injected
+            Promise.all([...cssPromises, ...jsPromises, ...imgPromises])
                 .then(() => {
                     // Inject HTML content
                     document.getElementById('content').innerHTML = doc.body.innerHTML;
@@ -125,7 +125,7 @@
             });
         }
 
-        function fetchAndInjectImage(img) {
+        function fetchAndReplaceImage(img) {
             return new Promise((resolve, reject) => {
                 const src = img.getAttribute('src');
                 const absoluteUrl = new URL(src, url).href;

@@ -17,11 +17,6 @@
             height: 100vh;
             overflow: hidden;
         }
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
     </style>
 </head>
 <body>
@@ -30,16 +25,22 @@
     </div>
 
     <script>
-        function getUrlParams() {
+        async function getUrlParams() {
             const params = new URLSearchParams(window.location.search);
             return params.get('url');
         }
 
-        function loadContent() {
-            const url = getUrlParams();
+        async function loadContent() {
+            const url = await getUrlParams();
             const box = document.getElementById('box');
             if (url) {
-                box.innerHTML = `<iframe src="${url}"></iframe>`;
+                try {
+                    const response = await fetch(url);
+                    const content = await response.text();
+                    box.innerHTML = content;
+                } catch (error) {
+                    box.innerHTML = 'Failed to load content.';
+                }
             } else {
                 box.innerHTML = 'No URL provided.';
             }

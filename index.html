@@ -28,7 +28,10 @@
                 return;
             }
 
-            fetch(proxies[proxyIndex] + encodeURIComponent(url))
+            const proxy = proxies[proxyIndex];
+            const fetchUrl = proxy + encodeURIComponent(url);
+
+            fetch(fetchUrl)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Network response was not ok');
@@ -85,27 +88,31 @@
         function fetchResource(resourceUrl, type) {
             return new Promise((resolve, reject) => {
                 const proxyIndex = attempt % proxies.length;
-                const absoluteUrl = new URL(resourceUrl, url).href; // Resolve relative URLs
-                fetch(proxies[proxyIndex] + encodeURIComponent(absoluteUrl))
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.text();
-                    })
-                    .then(content => {
+                const absoluteUrl = new URL(resourceUrl, url).href;
+                const proxyUrl = proxies[proxyIndex] + encodeURIComponent(absoluteUrl);
+
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', proxyUrl, true);
+                xhr.onload = function () {
+                    if (xhr.status >= 200 && xhr.status < 300) {
                         if (type === 'css') {
                             const style = document.createElement('style');
-                            style.textContent = content;
+                            style.textContent = xhr.responseText;
                             document.head.appendChild(style);
                         } else if (type === 'js') {
                             const script = document.createElement('script');
-                            script.textContent = content;
+                            script.textContent = xhr.responseText;
                             document.body.appendChild(script);
                         }
                         resolve();
-                    })
-                    .catch(reject);
+                    } else {
+                        reject('Failed to fetch resource');
+                    }
+                };
+                xhr.onerror = function () {
+                    reject('Network error');
+                };
+                xhr.send();
             });
         }
 

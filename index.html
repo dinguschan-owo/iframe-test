@@ -21,6 +21,8 @@
             'https://api.allorigins.win/raw?url='
         ];
         let proxyIndex = 0;
+        let cssFiles = [];
+        let jsFiles = [];
 
         function fetchWithProxy() {
             if (proxyIndex >= proxies.length) {
@@ -42,19 +44,16 @@
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(data, 'text/html');
 
-                    // Fetch and inject CSS files
+                    // Collect CSS and JS files
                     const linkElements = doc.querySelectorAll('link[rel="stylesheet"]');
-                    const cssPromises = Array.from(linkElements).map(link => {
-                        const href = link.getAttribute('href');
-                        return fetchResource(href, 'css');
-                    });
+                    cssFiles = Array.from(linkElements).map(link => new URL(link.getAttribute('href'), url).href);
 
-                    // Fetch and inject JS files
                     const scriptElements = doc.querySelectorAll('script[src]');
-                    const jsPromises = Array.from(scriptElements).map(script => {
-                        const src = script.getAttribute('src');
-                        return fetchResource(src, 'js');
-                    });
+                    jsFiles = Array.from(scriptElements).map(script => new URL(script.getAttribute('src'), url).href);
+
+                    // Fetch and inject CSS and JS files
+                    const cssPromises = cssFiles.map(href => fetchResource(href, 'css'));
+                    const jsPromises = jsFiles.map(src => fetchResource(src, 'js'));
 
                     // Wait for all resources to be fetched and injected
                     Promise.all([...cssPromises, ...jsPromises])
@@ -79,9 +78,7 @@
 
         function fetchResource(resourceUrl, type) {
             return new Promise((resolve, reject) => {
-                // Resolve relative URLs
-                const absoluteUrl = new URL(resourceUrl, url).href;
-                const proxyUrl = proxies[proxyIndex] + encodeURIComponent(absoluteUrl);
+                const proxyUrl = proxies[proxyIndex] + encodeURIComponent(resourceUrl);
 
                 fetch(proxyUrl)
                     .then(response => {
@@ -92,12 +89,10 @@
                     })
                     .then(content => {
                         if (type === 'css') {
-                            // Inject CSS
                             const style = document.createElement('style');
                             style.textContent = content;
                             document.head.appendChild(style);
                         } else if (type === 'js') {
-                            // Inject JS
                             const script = document.createElement('script');
                             script.textContent = content;
                             document.body.appendChild(script);

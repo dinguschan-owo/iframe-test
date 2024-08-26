@@ -30,41 +30,51 @@
             return params.get('url');
         }
 
+        async function fetchResource(url) {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch ${url}`);
+            }
+            return await response.text();
+        }
+
         async function loadContent() {
             const url = await getUrlParams();
             const box = document.getElementById('box');
             if (url) {
                 try {
                     // Fetch the HTML content
-                    const response = await fetch(url);
-                    const text = await response.text();
-                    
+                    const htmlText = await fetchResource(url);
+
                     // Create a temporary container to parse HTML content
                     const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = text;
+                    tempDiv.innerHTML = htmlText;
 
                     // Extract and load CSS files
-                    const links = tempDiv.querySelectorAll('link[rel="stylesheet"]');
-                    links.forEach(link => {
+                    const cssLinks = tempDiv.querySelectorAll('link[rel="stylesheet"]');
+                    for (let link of cssLinks) {
                         const href = link.getAttribute('href');
                         if (href) {
-                            const cssLink = document.createElement('link');
-                            cssLink.rel = 'stylesheet';
-                            cssLink.href = new URL(href, url).href;
-                            document.head.appendChild(cssLink);
+                            const cssUrl = new URL(href, url).href;
+                            const cssText = await fetchResource(cssUrl);
+                            const style = document.createElement('style');
+                            style.textContent = cssText;
+                            document.head.appendChild(style);
                         }
-                    });
+                    }
 
                     // Extract and load JavaScript files
                     const scripts = tempDiv.querySelectorAll('script[src]');
-                    scripts.forEach(script => {
+                    for (let script of scripts) {
                         const src = script.getAttribute('src');
                         if (src) {
-                            const jsScript = document.createElement('script');
-                            jsScript.src = new URL(src, url).href;
-                            document.body.appendChild(jsScript);
+                            const jsUrl = new URL(src, url).href;
+                            const jsText = await fetchResource(jsUrl);
+                            const newScript = document.createElement('script');
+                            newScript.textContent = jsText;
+                            document.body.appendChild(newScript);
                         }
-                    });
+                    }
 
                     // Inject the HTML content into the box
                     while (tempDiv.firstChild) {

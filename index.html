@@ -101,7 +101,10 @@
                         }
                         resolve();
                     })
-                    .catch(reject);
+                    .catch(error => {
+                        console.error(`Failed to fetch ${type} resource:`, error);
+                        reject();
+                    });
             });
         }
 

@@ -37,7 +37,13 @@
                 try {
                     const response = await fetch(url);
                     const content = await response.text();
-                    box.innerHTML = content;
+                    // Create a temporary container to inject HTML content
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = content;
+                    // Append the content to the box
+                    while (tempDiv.firstChild) {
+                        box.appendChild(tempDiv.firstChild);
+                    }
                 } catch (error) {
                     box.innerHTML = 'Failed to load content.';
                 }

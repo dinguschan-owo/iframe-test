@@ -20,9 +20,9 @@
             'https://api.codetabs.com/v1/tmp/?quest=',
             'https://api.allorigins.win/raw?url='
         ];
-        let attempt = 0;
+        let proxyIndex = 0;
 
-        function fetchWithProxy(proxyIndex) {
+        function fetchWithProxy() {
             if (proxyIndex >= proxies.length) {
                 document.body.innerHTML = 'Error: Could not fetch the website content after multiple attempts.';
                 return;
@@ -56,68 +56,57 @@
                         return fetchResource(src, 'js');
                     });
 
+                    // Wait for all resources to be fetched and injected
                     Promise.all([...cssPromises, ...jsPromises])
                         .then(() => {
-                            document.open();
-                            document.write(doc.documentElement.outerHTML);
-                            document.close();
+                            // Replace document content with fetched content
+                            const newDoc = document.open();
+                            newDoc.write(doc.documentElement.outerHTML);
+                            newDoc.close();
                         })
                         .catch(error => {
                             console.error('Resource fetch error:', error);
-                            attempt++;
-                            if (attempt < 3) {
-                                fetchWithProxy(proxyIndex);
-                            } else {
-                                attempt = 0;
-                                fetchWithProxy(proxyIndex + 1);
-                            }
+                            proxyIndex++;
+                            fetchWithProxy();
                         });
                 })
                 .catch(error => {
                     console.error('Fetch error:', error);
-                    attempt++;
-                    if (attempt < 3) {
-                        fetchWithProxy(proxyIndex);
-                    } else {
-                        attempt = 0;
-                        fetchWithProxy(proxyIndex + 1);
-                    }
+                    proxyIndex++;
+                    fetchWithProxy();
                 });
         }
 
         function fetchResource(resourceUrl, type) {
             return new Promise((resolve, reject) => {
-                const proxyIndex = attempt % proxies.length;
                 const absoluteUrl = new URL(resourceUrl, url).href;
                 const proxyUrl = proxies[proxyIndex] + encodeURIComponent(absoluteUrl);
 
-                const xhr = new XMLHttpRequest();
-                xhr.open('GET', proxyUrl, true);
-                xhr.onload = function () {
-                    if (xhr.status >= 200 && xhr.status < 300) {
+                fetch(proxyUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.text();
+                    })
+                    .then(content => {
                         if (type === 'css') {
                             const style = document.createElement('style');
-                            style.textContent = xhr.responseText;
+                            style.textContent = content;
                             document.head.appendChild(style);
                         } else if (type === 'js') {
                             const script = document.createElement('script');
-                            script.textContent = xhr.responseText;
+                            script.textContent = content;
                             document.body.appendChild(script);
                         }
                         resolve();
-                    } else {
-                        reject('Failed to fetch resource');
-                    }
-                };
-                xhr.onerror = function () {
-                    reject('Network error');
-                };
-                xhr.send();
+                    })
+                    .catch(reject);
             });
         }
 
         if (url) {
-            fetchWithProxy(0);
+            fetchWithProxy();
         } else {
             document.body.innerText = 'No URL provided.';
         }

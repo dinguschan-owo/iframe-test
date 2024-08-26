@@ -22,6 +22,44 @@
         ];
         let proxyIndex = 0;
 
+        async function fetchExternalResources(doc) {
+            const linkElements = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
+            const scriptElements = Array.from(doc.querySelectorAll('script[src]'));
+
+            // Fetch and inject external CSS files (including CDN links)
+            const externalCssPromises = linkElements.map(async link => {
+                const href = new URL(link.getAttribute('href'), url).href;
+                if (href.startsWith('http')) {
+                    try {
+                        const cssContent = await fetchResource(href);
+                        const style = document.createElement('style');
+                        style.textContent = cssContent;
+                        link.parentNode.replaceChild(style, link);
+                    } catch (error) {
+                        console.error('Failed to fetch external CSS:', error);
+                    }
+                }
+            });
+
+            // Fetch and inject external JS files (including CDN links)
+            const externalJsPromises = scriptElements.map(async script => {
+                const src = new URL(script.getAttribute('src'), url).href;
+                if (src.startsWith('http')) {
+                    try {
+                        const jsContent = await fetchResource(src);
+                        const newScript = document.createElement('script');
+                        newScript.textContent = jsContent;
+                        script.parentNode.replaceChild(newScript, script);
+                    } catch (error) {
+                        console.error('Failed to fetch external JS:', error);
+                    }
+                }
+            });
+
+            // Wait for all external resources to be fetched and injected
+            await Promise.all([...externalCssPromises, ...externalJsPromises]);
+        }
+
         async function fetchWithProxy() {
             if (proxyIndex >= proxies.length) {
                 document.body.innerHTML = 'Error: Could not fetch the website content after multiple attempts.';
@@ -39,7 +77,7 @@
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(data, 'text/html');
 
-                // Handle CSS files (internal and external)
+                // Handle internal CSS and JS files
                 const linkElements = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
                 const cssPromises = linkElements.map(async link => {
                     const href = new URL(link.getAttribute('href'), url).href;
@@ -49,7 +87,6 @@
                     link.parentNode.replaceChild(style, link);
                 });
 
-                // Handle JS files (internal and external)
                 const scriptElements = Array.from(doc.querySelectorAll('script[src]'));
                 const jsPromises = scriptElements.map(async script => {
                     const src = new URL(script.getAttribute('src'), url).href;
@@ -59,27 +96,11 @@
                     script.parentNode.replaceChild(newScript, script);
                 });
 
-                // Handle external resources like fonts
-                const externalResourcesPromises = Array.from(doc.querySelectorAll('link[rel="stylesheet"], script[src], img[src], link[rel="icon"], link[rel="shortcut icon"]')).map(async resource => {
-                    const resourceUrl = new URL(resource.getAttribute('href') || resource.getAttribute('src'), url).href;
-                    const content = await fetchResource(resourceUrl);
-                    if (resource.tagName.toLowerCase() === 'link' && resource.getAttribute('rel') === 'stylesheet') {
-                        const style = document.createElement('style');
-                        style.textContent = content;
-                        resource.parentNode.replaceChild(style, resource);
-                    } else if (resource.tagName.toLowerCase() === 'script') {
-                        const newScript = document.createElement('script');
-                        newScript.textContent = content;
-                        resource.parentNode.replaceChild(newScript, resource);
-                    } else if (resource.tagName.toLowerCase() === 'img') {
-                        resource.setAttribute('src', resourceUrl);
-                    } else if (resource.tagName.toLowerCase().includes('link')) {
-                        resource.setAttribute('href', resourceUrl);
-                    }
-                });
+                // Fetch and inject external resources (CDN links)
+                await fetchExternalResources(doc);
 
-                // Wait for all CSS, JS, and external resources to be fetched and injected
-                await Promise.all([...cssPromises, ...jsPromises, ...externalResourcesPromises]);
+                // Wait for all internal CSS and JS files to be fetched and injected
+                await Promise.all([...cssPromises, ...jsPromises]);
 
                 // Inject the modified HTML into the current document
                 document.open();

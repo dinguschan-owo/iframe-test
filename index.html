@@ -20,12 +20,14 @@
         const targetUrl = urlParams.get('url');
 
         if (targetUrl) {
+            // Fetch the HTML from the target URL using the Codetabs API
             fetch('https://api.codetabs.com/v1/tmp/?quest=' + encodeURIComponent(targetUrl))
                 .then(response => response.text())
                 .then(data => {
-                    // Forward the fetched data to the origin of the request
-                    const returnUrl = 'https://reciver-two.vercel.app/return?data=' + encodeURIComponent(data);
-                    window.location.href = returnUrl;
+                    // Send the fetched HTML back to Website 1
+                    document.open();
+                    document.write(data);
+                    document.close();
                 })
                 .catch(err => console.error('Error fetching the URL:', err));
         }

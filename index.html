@@ -6,34 +6,27 @@
     <title>Website 2</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
             margin: 0;
-            background-color: #f4f4f4;
-        }
-        .container {
-            text-align: center;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
         }
         .box {
-            border: 2px solid #007bff;
-            border-radius: 5px;
-            padding: 20px;
-            width: 80%;
-            max-width: 800px;
-            height: 80%;
-            max-height: 600px;
-            overflow: auto;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="box" id="box">
-            <!-- Content from Website 1 will be displayed here -->
-        </div>
+    <div class="box" id="box">
+        <!-- Content from Website 1 will be displayed here -->
     </div>
 
     <script>
@@ -46,7 +39,7 @@
             const url = getUrlParams();
             const box = document.getElementById('box');
             if (url) {
-                box.innerHTML = `<iframe src="${url}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+                box.innerHTML = `<iframe src="${url}"></iframe>`;
             } else {
                 box.innerHTML = 'No URL provided.';
             }

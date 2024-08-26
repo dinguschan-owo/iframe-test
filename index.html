@@ -38,6 +38,18 @@
             return await response.text();
         }
 
+        function injectCSS(cssText) {
+            const style = document.createElement('style');
+            style.textContent = cssText;
+            document.head.appendChild(style);
+        }
+
+        function injectJavaScript(jsText) {
+            const script = document.createElement('script');
+            script.textContent = jsText;
+            document.body.appendChild(script);
+        }
+
         async function loadContent() {
             const url = await getUrlParams();
             const box = document.getElementById('box');
@@ -57,9 +69,7 @@
                         if (href) {
                             const cssUrl = new URL(href, url).href;
                             const cssText = await fetchResource(cssUrl);
-                            const style = document.createElement('style');
-                            style.textContent = cssText;
-                            document.head.appendChild(style);
+                            injectCSS(cssText);
                         }
                     }
 
@@ -70,9 +80,7 @@
                         if (src) {
                             const jsUrl = new URL(src, url).href;
                             const jsText = await fetchResource(jsUrl);
-                            const newScript = document.createElement('script');
-                            newScript.textContent = jsText;
-                            document.body.appendChild(newScript);
+                            injectJavaScript(jsText);
                         }
                     }
 

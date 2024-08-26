@@ -79,6 +79,7 @@
 
         function fetchResource(resourceUrl, type) {
             return new Promise((resolve, reject) => {
+                // Resolve relative URLs
                 const absoluteUrl = new URL(resourceUrl, url).href;
                 const proxyUrl = proxies[proxyIndex] + encodeURIComponent(absoluteUrl);
 
@@ -91,20 +92,19 @@
                     })
                     .then(content => {
                         if (type === 'css') {
+                            // Inject CSS
                             const style = document.createElement('style');
                             style.textContent = content;
                             document.head.appendChild(style);
                         } else if (type === 'js') {
+                            // Inject JS
                             const script = document.createElement('script');
                             script.textContent = content;
                             document.body.appendChild(script);
                         }
                         resolve();
                     })
-                    .catch(error => {
-                        console.error(`Failed to fetch ${type} resource:`, error);
-                        reject();
-                    });
+                    .catch(reject);
             });
         }
 

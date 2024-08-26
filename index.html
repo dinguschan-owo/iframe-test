@@ -46,7 +46,7 @@
                     const cssContent = await fetchResource(href);
                     const style = document.createElement('style');
                     style.textContent = cssContent;
-                    document.head.appendChild(style); // Append CSS to head
+                    document.head.appendChild(style);
                 });
 
                 // Handle internal and external JS files
@@ -56,7 +56,7 @@
                     const jsContent = await fetchResource(src);
                     const newScript = document.createElement('script');
                     newScript.textContent = jsContent;
-                    document.body.appendChild(newScript); // Append JS to body
+                    document.body.appendChild(newScript);
                 });
 
                 // Handle external resources like fonts, icons, etc.
@@ -80,10 +80,6 @@
                 document.open();
                 document.write(doc.documentElement.outerHTML);
                 document.close();
-
-                // Re-fetch CSS and JS for custom elements
-                refetchExternalResources(doc);
-
             } catch (error) {
                 console.error('Fetch error:', error);
                 proxyIndex++;
@@ -123,24 +119,6 @@
                 proxyIndex++;
                 fetchWithProxy();
             }
-        }
-
-        // Re-fetch CSS and JS for custom elements
-        async function refetchExternalResources(doc) {
-            const linkElements = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
-            const scriptElements = Array.from(doc.querySelectorAll('script[src]'));
-
-            linkElements.forEach(link => {
-                if (link.getAttribute('href').startsWith('http')) {
-                    fetchAndInjectExternalResource(link.getAttribute('href'), 'css');
-                }
-            });
-
-            scriptElements.forEach(script => {
-                if (script.getAttribute('src').startsWith('http')) {
-                    fetchAndInjectExternalResource(script.getAttribute('src'), 'js');
-                }
-            });
         }
 
         if (url) {

@@ -39,7 +39,7 @@
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(data, 'text/html');
 
-                // Handle CSS files
+                // Handle CSS files (internal and external)
                 const linkElements = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
                 const cssPromises = linkElements.map(async link => {
                     const href = new URL(link.getAttribute('href'), url).href;
@@ -49,7 +49,7 @@
                     link.parentNode.replaceChild(style, link);
                 });
 
-                // Handle JS files
+                // Handle JS files (internal and external)
                 const scriptElements = Array.from(doc.querySelectorAll('script[src]'));
                 const jsPromises = scriptElements.map(async script => {
                     const src = new URL(script.getAttribute('src'), url).href;
@@ -59,8 +59,27 @@
                     script.parentNode.replaceChild(newScript, script);
                 });
 
-                // Wait for all CSS and JS files to be fetched and injected
-                await Promise.all([...cssPromises, ...jsPromises]);
+                // Handle external resources like fonts
+                const externalResourcesPromises = Array.from(doc.querySelectorAll('link[rel="stylesheet"], script[src], img[src], link[rel="icon"], link[rel="shortcut icon"]')).map(async resource => {
+                    const resourceUrl = new URL(resource.getAttribute('href') || resource.getAttribute('src'), url).href;
+                    const content = await fetchResource(resourceUrl);
+                    if (resource.tagName.toLowerCase() === 'link' && resource.getAttribute('rel') === 'stylesheet') {
+                        const style = document.createElement('style');
+                        style.textContent = content;
+                        resource.parentNode.replaceChild(style, resource);
+                    } else if (resource.tagName.toLowerCase() === 'script') {
+                        const newScript = document.createElement('script');
+                        newScript.textContent = content;
+                        resource.parentNode.replaceChild(newScript, resource);
+                    } else if (resource.tagName.toLowerCase() === 'img') {
+                        resource.setAttribute('src', resourceUrl);
+                    } else if (resource.tagName.toLowerCase().includes('link')) {
+                        resource.setAttribute('href', resourceUrl);
+                    }
+                });
+
+                // Wait for all CSS, JS, and external resources to be fetched and injected
+                await Promise.all([...cssPromises, ...jsPromises, ...externalResourcesPromises]);
 
                 // Inject the modified HTML into the current document
                 document.open();

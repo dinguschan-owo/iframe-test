@@ -63,13 +63,13 @@
                 const externalResources = [];
                 linkElements.forEach(link => {
                     if (link.getAttribute('href').startsWith('http')) {
-                        externalResources.push(fetchExternalResource(link.getAttribute('href'), 'css'));
+                        externalResources.push(fetchAndInjectExternalResource(link.getAttribute('href'), 'css'));
                     }
                 });
 
                 scriptElements.forEach(script => {
                     if (script.getAttribute('src').startsWith('http')) {
-                        externalResources.push(fetchExternalResource(script.getAttribute('src'), 'js'));
+                        externalResources.push(fetchAndInjectExternalResource(script.getAttribute('src'), 'js'));
                     }
                 });
 
@@ -98,9 +98,10 @@
             }
         }
 
-        async function fetchExternalResource(resourceUrl, type) {
+        async function fetchAndInjectExternalResource(resourceUrl, type) {
             try {
-                const response = await fetch(resourceUrl);
+                const proxyUrl = proxies[proxyIndex] + encodeURIComponent(resourceUrl);
+                const response = await fetch(proxyUrl);
                 if (!response.ok) throw new Error('Network response was not ok');
                 const content = await response.text();
 
@@ -115,6 +116,8 @@
                 }
             } catch (error) {
                 console.error('Failed to fetch external resource:', resourceUrl, error);
+                proxyIndex++;
+                fetchWithProxy();
             }
         }
 
@@ -124,55 +127,5 @@
             document.body.innerText = 'No URL provided.';
         }
     </script>
-    <script>
-// Function to fetch and inject external CSS and JS files
-async function fetchExternalResources(doc) {
-    const links = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
-    const scripts = Array.from(doc.querySelectorAll('script[src]'));
-
-    // Fetch and inject external CSS
-    links.forEach(async (link) => {
-        const href = link.getAttribute('href');
-        if (href.startsWith('http')) {
-            try {
-                const cssResponse = await fetch(href);
-                const cssText = await cssResponse.text();
-                const style = document.createElement('style');
-                style.textContent = cssText;
-                document.head.appendChild(style);
-            } catch (error) {
-                console.error('Failed to fetch CSS:', href, error);
-            }
-        }
-    });
-
-    // Fetch and inject external JS
-    scripts.forEach(async (script) => {
-        const src = script.getAttribute('src');
-        if (src.startsWith('http')) {
-            try {
-                const jsResponse = await fetch(src);
-                const jsText = await jsResponse.text();
-                const newScript = document.createElement('script');
-                newScript.textContent = jsText;
-                document.body.appendChild(newScript);
-            } catch (error) {
-                console.error('Failed to fetch JS:', src, error);
-            }
-        }
-    });
-}
-
-// Call this function after fetching the main HTML content
-async function injectExternalResourcesAfterMainFetch() {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(document.documentElement.outerHTML, 'text/html');
-    await fetchExternalResources(doc);
-}
-
-// Make sure to call this function after the main HTML has been injected
-injectExternalResourcesAfterMainFetch();
-</script>
-
 </body>
 </html>

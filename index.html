@@ -39,36 +39,7 @@
                     return response.text();
                 })
                 .then(data => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(data, 'text/html');
-
-                    // Fetch and inject CSS files
-                    const linkElements = doc.querySelectorAll('link[rel="stylesheet"]');
-                    const cssPromises = Array.from(linkElements).map(link => {
-                        const href = link.getAttribute('href');
-                        return fetchResource(href, 'css');
-                    });
-
-                    // Fetch and inject JS files
-                    const scriptElements = doc.querySelectorAll('script[src]');
-                    const jsPromises = Array.from(scriptElements).map(script => {
-                        const src = script.getAttribute('src');
-                        return fetchResource(src, 'js');
-                    });
-
-                    // Wait for all resources to be fetched and injected
-                    Promise.all([...cssPromises, ...jsPromises])
-                        .then(() => {
-                            // Replace document content with fetched content
-                            const newDoc = document.open();
-                            newDoc.write(doc.documentElement.outerHTML);
-                            newDoc.close();
-                        })
-                        .catch(error => {
-                            console.error('Resource fetch error:', error);
-                            proxyIndex++;
-                            fetchWithProxy();
-                        });
+                    processHtml(data);
                 })
                 .catch(error => {
                     console.error('Fetch error:', error);
@@ -77,9 +48,36 @@
                 });
         }
 
-        function fetchResource(resourceUrl, type) {
+        function processHtml(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            // Inject CSS
+            const cssLinks = doc.querySelectorAll('link[rel="stylesheet"]');
+            const cssPromises = Array.from(cssLinks).map(link => {
+                return fetchAndInjectCss(link.getAttribute('href'));
+            });
+
+            // Inject JS
+            const scriptLinks = doc.querySelectorAll('script[src]');
+            const jsPromises = Array.from(scriptLinks).map(script => {
+                return fetchAndInjectJs(script.getAttribute('src'));
+            });
+
+            // Wait for all CSS and JS to be injected
+            Promise.all([...cssPromises, ...jsPromises])
+                .then(() => {
+                    // Inject HTML content
+                    document.getElementById('content').innerHTML = doc.body.innerHTML;
+                })
+                .catch(error => {
+                    console.error('Resource fetch error:', error);
+                });
+        }
+
+        function fetchAndInjectCss(href) {
             return new Promise((resolve, reject) => {
-                const absoluteUrl = new URL(resourceUrl, url).href;
+                const absoluteUrl = new URL(href, url).href;
                 const proxyUrl = proxies[proxyIndex] + encodeURIComponent(absoluteUrl);
 
                 fetch(proxyUrl)
@@ -89,22 +87,35 @@
                         }
                         return response.text();
                     })
-                    .then(content => {
-                        if (type === 'css') {
-                            const style = document.createElement('style');
-                            style.textContent = content;
-                            document.head.appendChild(style);
-                        } else if (type === 'js') {
-                            const script = document.createElement('script');
-                            script.textContent = content;
-                            document.body.appendChild(script);
-                        }
+                    .then(css => {
+                        const style = document.createElement('style');
+                        style.textContent = css;
+                        document.head.appendChild(style);
                         resolve();
                     })
-                    .catch(error => {
-                        console.error(`Failed to fetch ${type} resource:`, error);
-                        reject();
-                    });
+                    .catch(reject);
+            });
+        }
+
+        function fetchAndInjectJs(src) {
+            return new Promise((resolve, reject) => {
+                const absoluteUrl = new URL(src, url).href;
+                const proxyUrl = proxies[proxyIndex] + encodeURIComponent(absoluteUrl);
+
+                fetch(proxyUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.text();
+                    })
+                    .then(js => {
+                        const script = document.createElement('script');
+                        script.textContent = js;
+                        document.body.appendChild(script);
+                        resolve();
+                    })
+                    .catch(reject);
             });
         }
 

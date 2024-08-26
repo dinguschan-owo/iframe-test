@@ -21,10 +21,8 @@
             'https://api.allorigins.win/raw?url='
         ];
         let proxyIndex = 0;
-        let cssFiles = [];
-        let jsFiles = [];
 
-        function fetchWithProxy() {
+        async function fetchWithProxy() {
             if (proxyIndex >= proxies.length) {
                 document.body.innerHTML = 'Error: Could not fetch the website content after multiple attempts.';
                 return;
@@ -33,73 +31,59 @@
             const proxy = proxies[proxyIndex];
             const fetchUrl = proxy + encodeURIComponent(url);
 
-            fetch(fetchUrl)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.text();
-                })
-                .then(data => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(data, 'text/html');
+            try {
+                const response = await fetch(fetchUrl);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.text();
 
-                    // Collect CSS and JS files
-                    const linkElements = doc.querySelectorAll('link[rel="stylesheet"]');
-                    cssFiles = Array.from(linkElements).map(link => new URL(link.getAttribute('href'), url).href);
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(data, 'text/html');
 
-                    const scriptElements = doc.querySelectorAll('script[src]');
-                    jsFiles = Array.from(scriptElements).map(script => new URL(script.getAttribute('src'), url).href);
+                // Extract and inject CSS
+                const linkElements = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
+                const cssPromises = linkElements.map(link => fetchAndInject(link.getAttribute('href'), 'css'));
 
-                    // Fetch and inject CSS and JS files
-                    const cssPromises = cssFiles.map(href => fetchResource(href, 'css'));
-                    const jsPromises = jsFiles.map(src => fetchResource(src, 'js'));
+                // Extract and inject JS
+                const scriptElements = Array.from(doc.querySelectorAll('script[src]'));
+                const jsPromises = scriptElements.map(script => fetchAndInject(script.getAttribute('src'), 'js'));
 
-                    // Wait for all resources to be fetched and injected
-                    Promise.all([...cssPromises, ...jsPromises])
-                        .then(() => {
-                            // Replace document content with fetched content
-                            const newDoc = document.open();
-                            newDoc.write(doc.documentElement.outerHTML);
-                            newDoc.close();
-                        })
-                        .catch(error => {
-                            console.error('Resource fetch error:', error);
-                            proxyIndex++;
-                            fetchWithProxy();
-                        });
-                })
-                .catch(error => {
-                    console.error('Fetch error:', error);
-                    proxyIndex++;
-                    fetchWithProxy();
-                });
+                // Wait for all CSS and JS to be fetched and injected
+                await Promise.all([...cssPromises, ...jsPromises]);
+
+                // Inject the HTML content
+                document.open();
+                document.write(doc.documentElement.outerHTML);
+                document.close();
+            } catch (error) {
+                console.error('Fetch error:', error);
+                proxyIndex++;
+                fetchWithProxy();
+            }
         }
 
-        function fetchResource(resourceUrl, type) {
-            return new Promise((resolve, reject) => {
-                const proxyUrl = proxies[proxyIndex] + encodeURIComponent(resourceUrl);
+        function fetchAndInject(resourceUrl, type) {
+            return new Promise(async (resolve, reject) => {
+                try {
+                    const absoluteUrl = new URL(resourceUrl, url).href;
+                    const proxyUrl = proxies[proxyIndex] + encodeURIComponent(absoluteUrl);
 
-                fetch(proxyUrl)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.text();
-                    })
-                    .then(content => {
-                        if (type === 'css') {
-                            const style = document.createElement('style');
-                            style.textContent = content;
-                            document.head.appendChild(style);
-                        } else if (type === 'js') {
-                            const script = document.createElement('script');
-                            script.textContent = content;
-                            document.body.appendChild(script);
-                        }
-                        resolve();
-                    })
-                    .catch(reject);
+                    const response = await fetch(proxyUrl);
+                    if (!response.ok) throw new Error('Network response was not ok');
+
+                    const content = await response.text();
+                    if (type === 'css') {
+                        const style = document.createElement('style');
+                        style.textContent = content;
+                        document.head.appendChild(style);
+                    } else if (type === 'js') {
+                        const script = document.createElement('script');
+                        script.textContent = content;
+                        document.body.appendChild(script);
+                    }
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                }
             });
         }
 

@@ -34,10 +34,37 @@
 
             fetch(corsProxyUrl)
                 .then(response => response.text())
-                .then(data => {
-                    const blob = new Blob([data], { type: 'text/html' });
-                    const urlObject = URL.createObjectURL(blob);
-                    document.getElementById('websiteFrame').src = urlObject;
+                .then(async data => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(data, 'text/html');
+
+                    // Fetch and replace CSS links
+                    const cssPromises = [...doc.querySelectorAll('link[rel="stylesheet"]')].map(async link => {
+                        const cssUrl = new URL(link.href, url).href;
+                        const cssResponse = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(cssUrl)}`);
+                        const cssText = await cssResponse.text();
+                        const cssBlob = new Blob([cssText], { type: 'text/css' });
+                        const cssBlobUrl = URL.createObjectURL(cssBlob);
+                        link.href = cssBlobUrl;
+                    });
+
+                    // Fetch and replace JS scripts
+                    const jsPromises = [...doc.querySelectorAll('script[src]')].map(async script => {
+                        const jsUrl = new URL(script.src, url).href;
+                        const jsResponse = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(jsUrl)}`);
+                        const jsText = await jsResponse.text();
+                        const jsBlob = new Blob([jsText], { type: 'application/javascript' });
+                        const jsBlobUrl = URL.createObjectURL(jsBlob);
+                        script.src = jsBlobUrl;
+                    });
+
+                    await Promise.all([...cssPromises, ...jsPromises]);
+
+                    // Convert the modified HTML to a Blob and render it
+                    const modifiedHtml = doc.documentElement.outerHTML;
+                    const htmlBlob = new Blob([modifiedHtml], { type: 'text/html' });
+                    const htmlBlobUrl = URL.createObjectURL(htmlBlob);
+                    document.getElementById('websiteFrame').src = htmlBlobUrl;
                 })
                 .catch(error => {
                     document.body.innerHTML = `<p>Error fetching the URL: ${error.message}</p>`;

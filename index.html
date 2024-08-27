@@ -3,35 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTML Viewer</title>
+    <title>Website Renderer</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
         }
-        #content {
-            padding: 20px;
-            overflow: auto;
-            max-height: 100vh;
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .error {
+            color: red;
+            text-align: center;
+            font-size: 1.2em;
         }
     </style>
 </head>
 <body>
-    <div id="content">Loading content...</div>
+
+    <iframe id="websiteFrame"></iframe>
 
     <script>
-        async function fetchContent() {
+        async function fetchResource(url) {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch resource: ${url}`);
+            }
+            return response.text();
+        }
+
+        async function inlineResources(doc, baseUrl) {
+            const cssLinks = [...doc.querySelectorAll('link[rel="stylesheet"]')];
+            const jsScripts = [...doc.querySelectorAll('script[src]')];
+
+            // Inline CSS
+            for (const link of cssLinks) {
+                const href = new URL(link.href, baseUrl).href;
+                try {
+                    const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(href)}`;
+                    const cssContent = await fetchResource(proxyUrl);
+                    const styleTag = document.createElement('style');
+                    styleTag.textContent = cssContent;
+                    link.replaceWith(styleTag);
+                } catch (error) {
+                    console.error(`Error fetching CSS resource ${href}:`, error);
+                }
+            }
+
+            // Inline JS
+            for (const script of jsScripts) {
+                const src = new URL(script.src, baseUrl).href;
+                try {
+                    const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(src)}`;
+                    const jsContent = await fetchResource(proxyUrl);
+                    const scriptTag = document.createElement('script');
+                    scriptTag.textContent = jsContent;
+                    script.replaceWith(scriptTag);
+                } catch (error) {
+                    console.error(`Error fetching JS resource ${src}:`, error);
+                }
+            }
+
+            return doc.documentElement.outerHTML;
+        }
+
+        async function renderWebsite() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const url = urlParams.get('url');
+
+            if (!url) {
+                document.body.innerHTML = "<p class='error'>No URL provided.</p>";
+                return;
+            }
+
             try {
-                const response = await fetch('https://api.example.com/content'); // Replace with actual API endpoint
-                const data = await response.text();
-                document.getElementById('content').innerHTML = data;
+                const corsProxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
+                const htmlContent = await fetchResource(corsProxyUrl);
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlContent, 'text/html');
+
+                const modifiedHtml = await inlineResources(doc, url);
+
+                // Create a temporary HTML file and set it as iframe srcdoc
+                const iframe = document.getElementById('websiteFrame');
+                iframe.srcdoc = modifiedHtml;
             } catch (error) {
-                document.getElementById('content').innerHTML = 'Failed to load content.';
+                document.body.innerHTML = `<p class='error'>Error fetching the URL: ${error.message}</p>`;
             }
         }
 
-        fetchContent();
+        renderWebsite();
     </script>
+
 </body>
 </html>

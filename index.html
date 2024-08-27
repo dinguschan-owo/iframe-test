@@ -30,7 +30,9 @@
         const url = urlParams.get('url');
 
         if (url) {
-            fetch(url)
+            const corsProxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
+
+            fetch(corsProxyUrl)
                 .then(response => response.text())
                 .then(data => {
                     const blob = new Blob([data], { type: 'text/html' });

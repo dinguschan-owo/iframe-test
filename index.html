@@ -1,45 +1,36 @@
-<!-- receiver-site.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Receiver Site</title>
+    <title>Site 2: Render Page</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #f0f0f0;
+            overflow: hidden;
         }
-        #iframe-container {
-            width: 80%;
-            height: 80%;
+        iframe {
+            width: 100vw;
+            height: 100vh;
             border: none;
-            background-color: #fff;
         }
     </style>
 </head>
 <body>
-    <iframe id="iframe-container" src="" title="Content"></iframe>
+    <iframe id="siteFrame"></iframe>
     <script>
-        function getQueryParameter(name) {
+        function getParameterByName(name) {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get(name);
         }
 
-        document.addEventListener("DOMContentLoaded", () => {
-            const url = getQueryParameter('url');
-            if (url) {
-                document.getElementById('iframe-container').src = url;
-            } else {
-                document.getElementById('iframe-container').src = 'about:blank';
-            }
-        });
+        const url = getParameterByName('url');
+        if (url) {
+            document.getElementById('siteFrame').src = url;
+        } else {
+            document.body.innerHTML = '<h1>No URL provided</h1>';
+        }
     </script>
 </body>
 </html>

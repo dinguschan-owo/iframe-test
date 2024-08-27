@@ -91,10 +91,10 @@
                 const doc = parser.parseFromString(htmlContent, 'text/html');
 
                 const modifiedHtml = await inlineResources(doc, url);
-                const htmlBlob = new Blob([modifiedHtml], { type: 'text/html' });
-                const htmlBlobUrl = URL.createObjectURL(htmlBlob);
-
-                document.getElementById('websiteFrame').src = htmlBlobUrl;
+                
+                // Create a temporary HTML file and set it as iframe src
+                const iframe = document.getElementById('websiteFrame');
+                iframe.srcdoc = modifiedHtml;
             } catch (error) {
                 document.body.innerHTML = `<p class='error'>Error fetching the URL: ${error.message}</p>`;
             }

@@ -13,11 +13,17 @@
             align-items: center;
             justify-content: center;
             height: 100vh;
+            background-color: #f0f0f0;
         }
         iframe {
             width: 100%;
             height: 100%;
             border: none;
+        }
+        .error {
+            color: red;
+            text-align: center;
+            font-size: 1.2em;
         }
     </style>
 </head>
@@ -26,52 +32,74 @@
     <iframe id="websiteFrame" src=""></iframe>
 
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const url = urlParams.get('url');
-
-        if (url) {
-            const corsProxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
-
-            fetch(corsProxyUrl)
-                .then(response => response.text())
-                .then(async data => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(data, 'text/html');
-
-                    // Fetch and replace CSS links
-                    const cssPromises = [...doc.querySelectorAll('link[rel="stylesheet"]')].map(async link => {
-                        const cssUrl = new URL(link.href, url).href;
-                        const cssResponse = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(cssUrl)}`);
-                        const cssText = await cssResponse.text();
-                        const cssBlob = new Blob([cssText], { type: 'text/css' });
-                        const cssBlobUrl = URL.createObjectURL(cssBlob);
-                        link.href = cssBlobUrl;
-                    });
-
-                    // Fetch and replace JS scripts
-                    const jsPromises = [...doc.querySelectorAll('script[src]')].map(async script => {
-                        const jsUrl = new URL(script.src, url).href;
-                        const jsResponse = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(jsUrl)}`);
-                        const jsText = await jsResponse.text();
-                        const jsBlob = new Blob([jsText], { type: 'application/javascript' });
-                        const jsBlobUrl = URL.createObjectURL(jsBlob);
-                        script.src = jsBlobUrl;
-                    });
-
-                    await Promise.all([...cssPromises, ...jsPromises]);
-
-                    // Convert the modified HTML to a Blob and render it
-                    const modifiedHtml = doc.documentElement.outerHTML;
-                    const htmlBlob = new Blob([modifiedHtml], { type: 'text/html' });
-                    const htmlBlobUrl = URL.createObjectURL(htmlBlob);
-                    document.getElementById('websiteFrame').src = htmlBlobUrl;
-                })
-                .catch(error => {
-                    document.body.innerHTML = `<p>Error fetching the URL: ${error.message}</p>`;
-                });
-        } else {
-            document.body.innerHTML = "<p>No URL provided.</p>";
+        async function fetchResource(url) {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch resource: ${url}`);
+            }
+            return response.text();
         }
+
+        async function fetchAndReplaceResources(doc, url) {
+            // Handle CSS
+            const cssLinks = [...doc.querySelectorAll('link[rel="stylesheet"]')];
+            for (const link of cssLinks) {
+                const cssUrl = new URL(link.href, url).href;
+                try {
+                    const cssContent = await fetchResource(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(cssUrl)}`);
+                    const cssBlob = new Blob([cssContent], { type: 'text/css' });
+                    const cssBlobUrl = URL.createObjectURL(cssBlob);
+                    link.href = cssBlobUrl;
+                } catch (error) {
+                    console.error(error);
+                    link.remove();
+                }
+            }
+
+            // Handle JS
+            const scripts = [...doc.querySelectorAll('script[src]')];
+            for (const script of scripts) {
+                const jsUrl = new URL(script.src, url).href;
+                try {
+                    const jsContent = await fetchResource(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(jsUrl)}`);
+                    const jsBlob = new Blob([jsContent], { type: 'application/javascript' });
+                    const jsBlobUrl = URL.createObjectURL(jsBlob);
+                    script.src = jsBlobUrl;
+                } catch (error) {
+                    console.error(error);
+                    script.remove();
+                }
+            }
+
+            return doc.documentElement.outerHTML;
+        }
+
+        async function renderWebsite() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const url = urlParams.get('url');
+
+            if (!url) {
+                document.body.innerHTML = "<p class='error'>No URL provided.</p>";
+                return;
+            }
+
+            try {
+                const corsProxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
+                const htmlContent = await fetchResource(corsProxyUrl);
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlContent, 'text/html');
+
+                const modifiedHtml = await fetchAndReplaceResources(doc, url);
+                const htmlBlob = new Blob([modifiedHtml], { type: 'text/html' });
+                const htmlBlobUrl = URL.createObjectURL(htmlBlob);
+
+                document.getElementById('websiteFrame').src = htmlBlobUrl;
+            } catch (error) {
+                document.body.innerHTML = `<p class='error'>Error fetching the URL: ${error.message}</p>`;
+            }
+        }
+
+        renderWebsite();
     </script>
 
 </body>

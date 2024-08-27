@@ -40,31 +40,31 @@
             return response.text();
         }
 
-        async function fetchAndReplaceResources(doc, url) {
-            // Handle CSS
+        async function fetchAndInlineResources(doc, baseUrl) {
+            // Inline CSS
             const cssLinks = [...doc.querySelectorAll('link[rel="stylesheet"]')];
             for (const link of cssLinks) {
-                const cssUrl = new URL(link.href, url).href;
+                const cssUrl = new URL(link.href, baseUrl).href;
                 try {
                     const cssContent = await fetchResource(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(cssUrl)}`);
-                    const cssBlob = new Blob([cssContent], { type: 'text/css' });
-                    const cssBlobUrl = URL.createObjectURL(cssBlob);
-                    link.href = cssBlobUrl;
+                    const style = document.createElement('style');
+                    style.textContent = cssContent;
+                    link.replaceWith(style);
                 } catch (error) {
                     console.error(error);
                     link.remove();
                 }
             }
 
-            // Handle JS
+            // Inline JS
             const scripts = [...doc.querySelectorAll('script[src]')];
             for (const script of scripts) {
-                const jsUrl = new URL(script.src, url).href;
+                const jsUrl = new URL(script.src, baseUrl).href;
                 try {
                     const jsContent = await fetchResource(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(jsUrl)}`);
-                    const jsBlob = new Blob([jsContent], { type: 'application/javascript' });
-                    const jsBlobUrl = URL.createObjectURL(jsBlob);
-                    script.src = jsBlobUrl;
+                    const inlineScript = document.createElement('script');
+                    inlineScript.textContent = jsContent;
+                    script.replaceWith(inlineScript);
                 } catch (error) {
                     console.error(error);
                     script.remove();
@@ -89,7 +89,7 @@
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(htmlContent, 'text/html');
 
-                const modifiedHtml = await fetchAndReplaceResources(doc, url);
+                const modifiedHtml = await fetchAndInlineResources(doc, url);
                 const htmlBlob = new Blob([modifiedHtml], { type: 'text/html' });
                 const htmlBlobUrl = URL.createObjectURL(htmlBlob);
 

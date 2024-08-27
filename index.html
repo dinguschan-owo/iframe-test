@@ -3,127 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Website 2</title>
+    <title>Website Renderer</title>
     <style>
         body {
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
         }
     </style>
 </head>
-<body id="content">
+<body>
+
+    <iframe id="websiteFrame" src=""></iframe>
+
     <script>
-        const url = new URLSearchParams(window.location.search).get('url');
-        const proxies = [
-            'https://api.codetabs.com/v1/proxy?quest=',
-            'https://api.codetabs.com/v1/tmp/?quest=',
-            'https://api.allorigins.win/raw?url='
-        ];
-        let proxyIndex = 0;
-
-        async function fetchWithProxy() {
-            if (proxyIndex >= proxies.length) {
-                document.body.innerHTML = 'Error: Could not fetch the website content after multiple attempts.';
-                return;
-            }
-
-            const proxy = proxies[proxyIndex];
-            const fetchUrl = proxy + encodeURIComponent(url);
-
-            try {
-                const response = await fetch(fetchUrl);
-                if (!response.ok) throw new Error('Network response was not ok');
-                const data = await response.text();
-
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(data, 'text/html');
-
-                // Handle internal and external CSS files
-                const linkElements = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
-                const cssPromises = linkElements.map(async link => {
-                    const href = new URL(link.getAttribute('href'), url).href;
-                    const cssContent = await fetchResource(href);
-                    const style = document.createElement('style');
-                    style.textContent = cssContent;
-                    link.parentNode.replaceChild(style, link);
-                });
-
-                // Handle internal and external JS files
-                const scriptElements = Array.from(doc.querySelectorAll('script[src]'));
-                const jsPromises = scriptElements.map(async script => {
-                    const src = new URL(script.getAttribute('src'), url).href;
-                    const jsContent = await fetchResource(src);
-                    const newScript = document.createElement('script');
-                    newScript.textContent = jsContent;
-                    script.parentNode.replaceChild(newScript, script);
-                });
-
-                // Handle external resources like fonts, icons, etc.
-                const externalPromises = [];
-
-                linkElements.forEach(link => {
-                    if (link.getAttribute('href').startsWith('http')) {
-                        externalPromises.push(fetchAndInjectExternal(link.getAttribute('href'), 'css'));
-                    }
-                });
-
-                scriptElements.forEach(script => {
-                    if (script.getAttribute('src').startsWith('http')) {
-                        externalPromises.push(fetchAndInjectExternal(script.getAttribute('src'), 'js'));
-                    }
-                });
-
-                // Wait for all CSS, JS, and external resources to be fetched and injected
-                await Promise.all([...cssPromises, ...jsPromises, ...externalPromises]);
-
-                // Inject the modified HTML into the current document
-                document.open();
-                document.write(doc.documentElement.outerHTML);
-                document.close();
-            } catch (error) {
-                console.error('Fetch error:', error);
-                proxyIndex++;
-                fetchWithProxy();
-            }
-        }
-
-        async function fetchResource(resourceUrl) {
-            try {
-                const proxyUrl = proxies[proxyIndex] + encodeURIComponent(resourceUrl);
-                const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error('Network response was not ok');
-                return await response.text();
-            } catch (error) {
-                throw new Error('Failed to fetch resource: ' + resourceUrl);
-            }
-        }
-
-        async function fetchAndInjectExternal(resourceUrl, type) {
-            try {
-                const response = await fetch(resourceUrl);
-                if (!response.ok) throw new Error('Network response was not ok');
-                const content = await response.text();
-
-                if (type === 'css') {
-                    const style = document.createElement('style');
-                    style.textContent = content;
-                    document.head.appendChild(style);
-                } else if (type === 'js') {
-                    const script = document.createElement('script');
-                    script.textContent = content;
-                    document.body.appendChild(script);
-                }
-            } catch (error) {
-                console.error('Failed to fetch external resource:', resourceUrl, error);
-            }
-        }
+        const urlParams = new URLSearchParams(window.location.search);
+        const url = urlParams.get('url');
 
         if (url) {
-            fetchWithProxy();
+            fetch(url)
+                .then(response => response.text())
+                .then(data => {
+                    const blob = new Blob([data], { type: 'text/html' });
+                    const urlObject = URL.createObjectURL(blob);
+                    document.getElementById('websiteFrame').src = urlObject;
+                })
+                .catch(error => {
+                    document.body.innerHTML = `<p>Error fetching the URL: ${error.message}</p>`;
+                });
         } else {
-            document.body.innerText = 'No URL provided.';
+            document.body.innerHTML = "<p>No URL provided.</p>";
         }
     </script>
+
 </body>
 </html>

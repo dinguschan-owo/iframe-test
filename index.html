@@ -1,83 +1,45 @@
+<!-- receiver-site.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Render Page</title>
+    <title>Receiver Site</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            overflow: hidden;
-        }
-        #content {
-            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             height: 100vh;
-            overflow: auto;
-            padding: 0;
-            box-sizing: border-box;
+            background-color: #f0f0f0;
+        }
+        #iframe-container {
+            width: 80%;
+            height: 80%;
+            border: none;
+            background-color: #fff;
         }
     </style>
 </head>
 <body>
-    <div id="content">Loading...</div>
+    <iframe id="iframe-container" src="" title="Content"></iframe>
     <script>
-        async function fetchAndRender() {
-            // Get the URL from the query parameter
+        function getQueryParameter(name) {
             const urlParams = new URLSearchParams(window.location.search);
-            const url = urlParams.get('url');
-            if (!url) {
-                document.getElementById('content').innerHTML = 'No URL specified.';
-                return;
-            }
-
-            const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
-            try {
-                const response = await fetch(proxyUrl);
-                if (response.ok) {
-                    const html = await response.text();
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-
-                    // Inject CSS
-                    const cssLinks = doc.querySelectorAll('link[rel="stylesheet"]');
-                    cssLinks.forEach(link => {
-                        const newLink = document.createElement('link');
-                        newLink.rel = 'stylesheet';
-                        newLink.href = new URL(link.href, url).href;
-                        document.head.appendChild(newLink);
-                    });
-
-                    // Inject JS
-                    const jsScripts = doc.querySelectorAll('script[src]');
-                    jsScripts.forEach(script => {
-                        const newScript = document.createElement('script');
-                        newScript.src = new URL(script.src, url).href;
-                        newScript.onload = () => console.log(`Loaded script: ${newScript.src}`);
-                        document.body.appendChild(newScript);
-                    });
-
-                    // Inject HTML content
-                    const contentDiv = document.getElementById('content');
-                    contentDiv.innerHTML = doc.body.innerHTML;
-
-                    // Execute inline scripts
-                    const inlineScripts = doc.querySelectorAll('script:not([src])');
-                    inlineScripts.forEach(script => {
-                        const newScript = document.createElement('script');
-                        newScript.textContent = script.textContent;
-                        document.body.appendChild(newScript);
-                    });
-
-                } else {
-                    document.getElementById('content').innerHTML = 'Failed to load content.';
-                }
-            } catch (error) {
-                document.getElementById('content').innerHTML = 'Error: ' + error.message;
-            }
+            return urlParams.get(name);
         }
 
-        fetchAndRender();
+        document.addEventListener("DOMContentLoaded", () => {
+            const url = getQueryParameter('url');
+            if (url) {
+                document.getElementById('iframe-container').src = url;
+            } else {
+                document.getElementById('iframe-container').src = 'about:blank';
+            }
+        });
     </script>
 </body>
 </html>

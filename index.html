@@ -40,33 +40,35 @@
             return response.text();
         }
 
-        async function fetchBlob(url) {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch resource: ${url}`);
-            }
-            const blob = await response.blob();
-            return URL.createObjectURL(blob);
-        }
+        async function inlineResources(doc, baseUrl) {
+            const cssLinks = [...doc.querySelectorAll('link[rel="stylesheet"]')];
+            const jsScripts = [...doc.querySelectorAll('script[src]')];
 
-        async function fetchAndReplaceResources(doc, baseUrl) {
-            const elements = [...doc.querySelectorAll('link[rel="stylesheet"], script[src], img[src]')];
-
-            for (const element of elements) {
-                const srcUrl = element.href || element.src;
-                const fullUrl = new URL(srcUrl, baseUrl).href;
+            // Inline CSS
+            for (const link of cssLinks) {
+                const href = new URL(link.href, baseUrl).href;
                 try {
-                    const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(fullUrl)}`;
-                    const blobUrl = await fetchBlob(proxyUrl);
-
-                    if (element.tagName === 'LINK') {
-                        element.href = blobUrl;
-                    } else if (element.tagName === 'SCRIPT' || element.tagName === 'IMG') {
-                        element.src = blobUrl;
-                    }
+                    const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(href)}`;
+                    const cssContent = await fetchResource(proxyUrl);
+                    const styleTag = document.createElement('style');
+                    styleTag.textContent = cssContent;
+                    link.replaceWith(styleTag);
                 } catch (error) {
-                    console.error(`Error fetching resource ${srcUrl}:`, error);
-                    element.remove();
+                    console.error(`Error fetching CSS resource ${href}:`, error);
+                }
+            }
+
+            // Inline JS
+            for (const script of jsScripts) {
+                const src = new URL(script.src, baseUrl).href;
+                try {
+                    const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(src)}`;
+                    const jsContent = await fetchResource(proxyUrl);
+                    const scriptTag = document.createElement('script');
+                    scriptTag.textContent = jsContent;
+                    script.replaceWith(scriptTag);
+                } catch (error) {
+                    console.error(`Error fetching JS resource ${src}:`, error);
                 }
             }
 
@@ -88,7 +90,7 @@
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(htmlContent, 'text/html');
 
-                const modifiedHtml = await fetchAndReplaceResources(doc, url);
+                const modifiedHtml = await inlineResources(doc, url);
                 const htmlBlob = new Blob([modifiedHtml], { type: 'text/html' });
                 const htmlBlobUrl = URL.createObjectURL(htmlBlob);
 

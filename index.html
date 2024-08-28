@@ -60,14 +60,12 @@
                             const newScript = document.createElement('script');
                             newScript.src = script.src.startsWith('http') ? script.src : new URL(script.src, url).href;
                             newScript.onload = () => {
-                                console.log('External script loaded and executed:', newScript.src);
+                                console.log('Script loaded and executed:', newScript.src);
+                            };
+                            newScript.onerror = (error) => {
+                                console.error('Error loading script:', newScript.src, error);
                             };
                             document.body.appendChild(newScript);
-                        } else {
-                            // Inline script
-                            const inlineScript = document.createElement('script');
-                            inlineScript.textContent = script.textContent;
-                            document.body.appendChild(inlineScript);
                         }
                     });
 
@@ -76,7 +74,7 @@
                     document.body.innerHTML = '';
                     document.body.appendChild(bodyContent);
 
-                    // Re-execute inline scripts that might not have been executed yet
+                    // Re-Append Inline Scripts to Execute
                     scripts.forEach(script => {
                         if (!script.src) {
                             const inlineScript = document.createElement('script');

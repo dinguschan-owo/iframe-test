@@ -35,7 +35,7 @@
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(htmlContent, 'text/html');
 
-                    // Extract and load linked CSS
+                    // Handle and inject external CSS
                     const stylesheets = doc.querySelectorAll('link[rel="stylesheet"]');
                     stylesheets.forEach(link => {
                         const stylesheetLink = document.createElement('link');
@@ -44,10 +44,15 @@
                         document.head.appendChild(stylesheetLink);
                     });
 
-                    // Inject the HTML content
-                    document.body.innerHTML = doc.body.innerHTML;
+                    // Handle inline CSS
+                    const styleTags = doc.querySelectorAll('style');
+                    styleTags.forEach(style => {
+                        const newStyle = document.createElement('style');
+                        newStyle.textContent = style.textContent;
+                        document.head.appendChild(newStyle);
+                    });
 
-                    // Re-execute any scripts in the loaded content
+                    // Handle and inject external JS
                     const scripts = doc.querySelectorAll('script');
                     scripts.forEach(script => {
                         const newScript = document.createElement('script');
@@ -58,6 +63,11 @@
                         }
                         document.body.appendChild(newScript);
                     });
+
+                    // Inject the HTML content (without script tags already handled)
+                    const bodyContent = doc.body.cloneNode(true);
+                    document.body.innerHTML = '';
+                    document.body.appendChild(bodyContent);
                 })
                 .catch(error => {
                     console.error('Fetch operation failed:', error);

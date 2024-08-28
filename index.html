@@ -35,7 +35,7 @@
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(htmlContent, 'text/html');
 
-                    // Inject external CSS
+                    // Handle and inject external CSS
                     const stylesheets = doc.querySelectorAll('link[rel="stylesheet"]');
                     stylesheets.forEach(link => {
                         const stylesheetLink = document.createElement('link');
@@ -44,7 +44,7 @@
                         document.head.appendChild(stylesheetLink);
                     });
 
-                    // Inject inline CSS
+                    // Handle inline CSS
                     const styleTags = doc.querySelectorAll('style');
                     styleTags.forEach(style => {
                         const newStyle = document.createElement('style');
@@ -52,7 +52,7 @@
                         document.head.appendChild(newStyle);
                     });
 
-                    // Inject external JavaScript
+                    // Handle external JavaScript files
                     const scripts = doc.querySelectorAll('script');
                     scripts.forEach(script => {
                         if (script.src) {
@@ -65,15 +65,14 @@
                             newScript.onerror = (error) => {
                                 console.error('Error loading script:', newScript.src, error);
                             };
-                            document.head.appendChild(newScript);
+                            document.head.appendChild(newScript); // Use head for external scripts
                         }
                     });
 
-                    // Inject HTML content without altering <body>
-                    const content = doc.querySelector('body').innerHTML;
-                    document.body.innerHTML = content;
+                    // Inject HTML content excluding the existing <body> tag
+                    document.body.innerHTML = doc.body.innerHTML;
 
-                    // Re-append inline scripts for execution
+                    // Re-append inline scripts to execute them
                     scripts.forEach(script => {
                         if (!script.src) {
                             const inlineScript = document.createElement('script');

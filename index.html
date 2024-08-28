@@ -35,21 +35,16 @@
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(htmlContent, 'text/html');
 
-                    // Handle and inject external CSS
+                    // Inject external CSS
                     const stylesheets = doc.querySelectorAll('link[rel="stylesheet"]');
                     stylesheets.forEach(link => {
-                        const stylesheetUrl = link.href.startsWith('http') ? link.href : new URL(link.href, url).href;
-                        fetch(stylesheetUrl)
-                            .then(response => response.text())
-                            .then(cssContent => {
-                                const style = document.createElement('style');
-                                style.textContent = cssContent;
-                                document.head.appendChild(style);
-                            })
-                            .catch(error => console.error('Error fetching CSS:', error));
+                        const stylesheetLink = document.createElement('link');
+                        stylesheetLink.rel = 'stylesheet';
+                        stylesheetLink.href = link.href.startsWith('http') ? link.href : new URL(link.href, url).href;
+                        document.head.appendChild(stylesheetLink);
                     });
 
-                    // Handle inline CSS
+                    // Inject inline CSS
                     const styleTags = doc.querySelectorAll('style');
                     styleTags.forEach(style => {
                         const newStyle = document.createElement('style');
@@ -57,52 +52,33 @@
                         document.head.appendChild(newStyle);
                     });
 
-                    // Handle external JavaScript files
+                    // Inject external JavaScript
                     const scripts = doc.querySelectorAll('script');
                     scripts.forEach(script => {
                         if (script.src) {
-                            const scriptUrl = script.src.startsWith('http') ? script.src : new URL(script.src, url).href;
-                            fetch(scriptUrl)
-                                .then(response => response.text())
-                                .then(jsContent => {
-                                    const newScript = document.createElement('script');
-                                    newScript.textContent = jsContent;
-                                    document.body.appendChild(newScript);
-                                })
-                                .catch(error => console.error('Error fetching JavaScript:', error));
+                            // External script
+                            const newScript = document.createElement('script');
+                            newScript.src = script.src.startsWith('http') ? script.src : new URL(script.src, url).href;
+                            newScript.onload = () => {
+                                console.log('Script loaded and executed:', newScript.src);
+                            };
+                            newScript.onerror = (error) => {
+                                console.error('Error loading script:', newScript.src, error);
+                            };
+                            document.head.appendChild(newScript);
                         }
                     });
 
-                    // Inject the HTML content (excluding script tags already handled)
-                    const bodyContent = doc.body.cloneNode(true);
-                    document.body.innerHTML = '';
-                    document.body.appendChild(bodyContent);
+                    // Inject HTML content without altering <body>
+                    const content = doc.querySelector('body').innerHTML;
+                    document.body.innerHTML = content;
 
-                    // Method 1: Re-Append Inline Scripts to Execute
+                    // Re-append inline scripts for execution
                     scripts.forEach(script => {
                         if (!script.src) {
                             const inlineScript = document.createElement('script');
                             inlineScript.textContent = script.textContent;
                             document.body.appendChild(inlineScript);
-                        }
-                    });
-
-                    // Method 2: Use Blob for JavaScript Execution
-                    const externalScripts = doc.querySelectorAll('script[src]');
-                    externalScripts.forEach(script => {
-                        if (script.src) {
-                            const scriptUrl = script.src.startsWith('http') ? script.src : new URL(script.src, url).href;
-                            fetch(scriptUrl)
-                                .then(response => response.text())
-                                .then(jsContent => {
-                                    const blob = new Blob([jsContent], { type: 'application/javascript' });
-                                    const scriptBlobUrl = URL.createObjectURL(blob);
-                                    const newScript = document.createElement('script');
-                                    newScript.src = scriptBlobUrl;
-                                    newScript.onload = () => URL.revokeObjectURL(scriptBlobUrl);
-                                    document.body.appendChild(newScript);
-                                })
-                                .catch(error => console.error('Error handling external JavaScript:', error));
                         }
                     });
                 })

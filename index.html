@@ -14,77 +14,57 @@
 </head>
 <body>
     <script>
+        async function fetchExternalResource(url) {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch resource at ${url}`);
+            }
+            return response.text();
+        }
+
+        async function fetchAndReplaceContent(url) {
+            try {
+                const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                let htmlContent = await response.text();
+                
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlContent, 'text/html');
+                
+                // Replace external CSS links with inline styles
+                const stylesheetLinks = doc.querySelectorAll('link[rel="stylesheet"]');
+                for (const link of stylesheetLinks) {
+                    const cssText = await fetchExternalResource(link.href.startsWith('http') ? link.href : new URL(link.href, url).href);
+                    htmlContent = htmlContent.replace(link.outerHTML, `<style>${cssText}</style>`);
+                }
+
+                // Replace external JavaScript links with inline scripts
+                const scriptLinks = doc.querySelectorAll('script[src]');
+                for (const script of scriptLinks) {
+                    const scriptText = await fetchExternalResource(script.src.startsWith('http') ? script.src : new URL(script.src, url).href);
+                    htmlContent = htmlContent.replace(script.outerHTML, `<script>${scriptText}</script>`);
+                }
+
+                // Update the content of the page
+                document.body.innerHTML = htmlContent;
+                
+            } catch (error) {
+                console.error('Fetch operation failed:', error);
+                document.body.innerHTML = `<h1>Failed to load content from ${url}</h1>`;
+            }
+        }
+
         function getParameterByName(name) {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get(name);
         }
 
         const url = getParameterByName('url');
-
         if (url) {
-            const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
-
-            fetch(proxyUrl)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.text();
-                })
-                .then(htmlContent => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(htmlContent, 'text/html');
-
-                    // Handle and inject external CSS
-                    const stylesheets = doc.querySelectorAll('link[rel="stylesheet"]');
-                    stylesheets.forEach(link => {
-                        const stylesheetLink = document.createElement('link');
-                        stylesheetLink.rel = 'stylesheet';
-                        stylesheetLink.href = link.href.startsWith('http') ? link.href : new URL(link.href, url).href;
-                        document.head.appendChild(stylesheetLink);
-                    });
-
-                    // Handle inline CSS
-                    const styleTags = doc.querySelectorAll('style');
-                    styleTags.forEach(style => {
-                        const newStyle = document.createElement('style');
-                        newStyle.textContent = style.textContent;
-                        document.head.appendChild(newStyle);
-                    });
-
-                    // Handle external JavaScript files
-                    const scripts = doc.querySelectorAll('script');
-                    scripts.forEach(script => {
-                        if (script.src) {
-                            // External script
-                            const newScript = document.createElement('script');
-                            newScript.src = script.src.startsWith('http') ? script.src : new URL(script.src, url).href;
-                            newScript.onload = () => {
-                                console.log('Script loaded and executed:', newScript.src);
-                            };
-                            newScript.onerror = (error) => {
-                                console.error('Error loading script:', newScript.src, error);
-                            };
-                            document.head.appendChild(newScript); // Use head for external scripts
-                        }
-                    });
-
-                    // Inject HTML content excluding the existing <body> tag
-                    document.body.innerHTML = doc.body.innerHTML;
-
-                    // Re-append inline scripts to execute them
-                    scripts.forEach(script => {
-                        if (!script.src) {
-                            const inlineScript = document.createElement('script');
-                            inlineScript.textContent = script.textContent;
-                            document.body.appendChild(inlineScript);
-                        }
-                    });
-                })
-                .catch(error => {
-                    console.error('Fetch operation failed:', error);
-                    document.body.innerHTML = `<h1>Failed to load content from ${url}</h1>`;
-                });
+            fetchAndReplaceContent(url);
         } else {
             document.body.innerHTML = '<h1>No URL provided</h1>';
         }

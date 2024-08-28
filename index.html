@@ -14,80 +14,83 @@
 </head>
 <body>
     <script>
-        function getParameterByName(name) {
+        async function getParameterByName(name) {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get(name);
         }
 
-        const url = getParameterByName('url');
-
-        if (url) {
+        async function fetchAndReplace(url) {
             const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
 
-            fetch(proxyUrl)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.text();
-                })
-                .then(htmlContent => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(htmlContent, 'text/html');
+            try {
+                const response = await fetch(proxyUrl);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const htmlContent = await response.text();
 
-                    // Handle and inject external CSS
-                    const stylesheets = doc.querySelectorAll('link[rel="stylesheet"]');
-                    stylesheets.forEach(link => {
-                        const stylesheetLink = document.createElement('link');
-                        stylesheetLink.rel = 'stylesheet';
-                        stylesheetLink.href = link.href.startsWith('http') ? link.href : new URL(link.href, url).href;
-                        document.head.appendChild(stylesheetLink);
-                    });
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlContent, 'text/html');
 
-                    // Handle inline CSS
-                    const styleTags = doc.querySelectorAll('style');
-                    styleTags.forEach(style => {
-                        const newStyle = document.createElement('style');
-                        newStyle.textContent = style.textContent;
-                        document.head.appendChild(newStyle);
-                    });
-
-                    // Handle external JavaScript files
-                    const scripts = doc.querySelectorAll('script');
-                    scripts.forEach(script => {
-                        if (script.src) {
-                            // External script
-                            const newScript = document.createElement('script');
-                            newScript.src = script.src.startsWith('http') ? script.src : new URL(script.src, url).href;
-                            newScript.onload = () => {
-                                console.log('Script loaded and executed:', newScript.src);
-                            };
-                            newScript.onerror = (error) => {
-                                console.error('Error loading script:', newScript.src, error);
-                            };
-                            document.head.appendChild(newScript); // Use head for external scripts
-                        }
-                    });
-
-                    // Inject HTML content excluding the existing <body> tag
-                    document.body.innerHTML = doc.body.innerHTML;
-
-                    // Re-append inline scripts to execute them
-                    scripts.forEach(script => {
-                        if (!script.src) {
-                            const inlineScript = document.createElement('script');
-                            inlineScript.textContent = script.textContent;
-                            document.body.appendChild(inlineScript);
-                        }
-                    });
-                })
-                .catch(error => {
-                    console.error('Fetch operation failed:', error);
-                    document.body.innerHTML = `<h1>Failed to load content from ${url}</h1>`;
+                // Fetch and replace external CSS
+                const cssLinks = doc.querySelectorAll('link[rel="stylesheet"]');
+                const cssPromises = Array.from(cssLinks).map(async (link) => {
+                    const cssUrl = link.href.startsWith('http') ? link.href : new URL(link.href, url).href;
+                    const cssResponse = await fetch(cssUrl);
+                    const cssContent = await cssResponse.text();
+                    return { href: cssUrl, content: cssContent };
                 });
-        } else {
-            document.body.innerHTML = '<h1>No URL provided</h1>';
+
+                // Fetch and replace external JavaScript
+                const jsScripts = doc.querySelectorAll('script[src]');
+                const jsPromises = Array.from(jsScripts).map(async (script) => {
+                    const jsUrl = script.src.startsWith('http') ? script.src : new URL(script.src, url).href;
+                    const jsResponse = await fetch(jsUrl);
+                    const jsContent = await jsResponse.text();
+                    return { src: jsUrl, content: jsContent };
+                });
+
+                // Wait for all CSS and JS fetching to complete
+                const cssResults = await Promise.all(cssPromises);
+                const jsResults = await Promise.all(jsPromises);
+
+                // Replace external CSS links with inline styles
+                cssResults.forEach(({ href, content }) => {
+                    const styleTag = `<style>${content}</style>`;
+                    htmlContent = htmlContent.replace(`<link href="${href}" rel="stylesheet">`, styleTag);
+                });
+
+                // Replace external JS scripts with inline scripts
+                jsResults.forEach(({ src, content }) => {
+                    const scriptTag = `<script>${content}</script>`;
+                    htmlContent = htmlContent.replace(`<script src="${src}"></script>`, scriptTag);
+                });
+
+                // Update document body with modified content
+                document.body.innerHTML = htmlContent;
+
+                // Append any remaining inline scripts
+                const remainingScripts = doc.querySelectorAll('script:not([src])');
+                remainingScripts.forEach(script => {
+                    const inlineScript = document.createElement('script');
+                    inlineScript.textContent = script.textContent;
+                    document.body.appendChild(inlineScript);
+                });
+
+            } catch (error) {
+                console.error('Error fetching and processing content:', error);
+                document.body.innerHTML = `<h1>Failed to load content from ${url}</h1>`;
+            }
         }
+
+        (async function() {
+            const url = await getParameterByName('url');
+            if (url) {
+                await fetchAndReplace(url);
+            } else {
+                document.body.innerHTML = '<h1>No URL provided</h1>';
+            }
+        })();
     </script>
 </body>
 </html>

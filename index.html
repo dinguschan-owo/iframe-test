@@ -76,12 +76,22 @@
                     document.body.innerHTML = '';
                     document.body.appendChild(bodyContent);
 
-                    // Re-execute inline scripts that might not have been executed yet
+                    // Method 1: Re-Append Inline Scripts to Execute
                     scripts.forEach(script => {
                         if (!script.src) {
                             const inlineScript = document.createElement('script');
                             inlineScript.textContent = script.textContent;
                             document.body.appendChild(inlineScript);
+                        }
+                    });
+
+                    // Method 2: Use eval for Inline Scripts (if necessary)
+                    const inlineScriptsContent = doc.querySelectorAll('script:not([src])');
+                    inlineScriptsContent.forEach(script => {
+                        try {
+                            eval(script.textContent);
+                        } catch (e) {
+                            console.error('Error evaluating inline script:', e);
                         }
                     });
                 })

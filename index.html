@@ -60,7 +60,7 @@
                             const newScript = document.createElement('script');
                             newScript.src = script.src.startsWith('http') ? script.src : new URL(script.src, url).href;
                             newScript.onload = () => {
-                                console.log('Script loaded and executed:', newScript.src);
+                                console.log('External script loaded and executed:', newScript.src);
                             };
                             document.body.appendChild(newScript);
                         } else {
@@ -76,22 +76,12 @@
                     document.body.innerHTML = '';
                     document.body.appendChild(bodyContent);
 
-                    // Method 1: Re-Append Inline Scripts to Execute
+                    // Re-execute inline scripts that might not have been executed yet
                     scripts.forEach(script => {
                         if (!script.src) {
                             const inlineScript = document.createElement('script');
                             inlineScript.textContent = script.textContent;
                             document.body.appendChild(inlineScript);
-                        }
-                    });
-
-                    // Method 2: Use eval for Inline Scripts (if necessary)
-                    const inlineScriptsContent = doc.querySelectorAll('script:not([src])');
-                    inlineScriptsContent.forEach(script => {
-                        try {
-                            eval(script.textContent);
-                        } catch (e) {
-                            console.error('Error evaluating inline script:', e);
                         }
                     });
                 })

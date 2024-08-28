@@ -22,7 +22,6 @@
         const url = getParameterByName('url');
         
         if (url) {
-            // Use a CORS proxy to fetch the source code
             const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
 
             fetch(proxyUrl)
@@ -33,22 +32,32 @@
                     return response.text();
                 })
                 .then(htmlContent => {
-                    // Create a container to hold the fetched content
-                    const container = document.createElement('div');
-                    container.innerHTML = htmlContent;
-                    document.body.appendChild(container);
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlContent, 'text/html');
 
-                    // Re-execute any scripts in the loaded content
-                    const scripts = container.querySelectorAll('script');
-                    scripts.forEach(script => {
-                        const newScript = document.createElement('script');
-                        if (script.src) {
-                            newScript.src = script.src; // If the script has a src attribute, copy it
-                        } else {
-                            newScript.textContent = script.textContent; // Otherwise, copy the inline script content
-                        }
-                        document.body.appendChild(newScript); // Append it to the document
+                    // Extract and load linked CSS
+                    const stylesheets = doc.querySelectorAll('link[rel="stylesheet"]');
+                    stylesheets.forEach(link => {
+                        const stylesheetLink = document.createElement('link');
+                        stylesheetLink.rel = 'stylesheet';
+                        stylesheetLink.href = link.href.startsWith('http') ? link.href : new URL(link.href, url).href;
+                        document.head.appendChild(stylesheetLink);
                     });
+
+                    // Extract and load linked JS
+                    const scripts = doc.querySelectorAll('script');
+                    scripts.forEach(script => {
+                        const scriptTag = document.createElement('script');
+                        if (script.src) {
+                            scriptTag.src = script.src.startsWith('http') ? script.src : new URL(script.src, url).href;
+                        } else {
+                            scriptTag.textContent = script.textContent;
+                        }
+                        document.body.appendChild(scriptTag);
+                    });
+
+                    // Inject the HTML content
+                    document.body.innerHTML = doc.body.innerHTML;
                 })
                 .catch(error => {
                     console.error('Fetch operation failed:', error);

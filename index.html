@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Render External Page</title>
+    <title>Dynamic Content Renderer</title>
     <style>
         body {
             margin: 0;
@@ -14,18 +14,22 @@
             width: 100%;
             height: 100vh;
             overflow: auto;
-            box-sizing: border-box;
+        }
+        #loading-spinner {
+            display: none; /* Hide loading spinner initially */
         }
     </style>
 </head>
 <body>
-    <input id="url" type="text" placeholder="Enter URL here" />
-    <button id="render-button">Render</button>
+    <input type="text" id="url" placeholder="Enter URL">
+    <button id="fetch-btn">Fetch</button>
+    <div id="loading-spinner">Loading...</div>
     <div id="rendered-content"></div>
-    <div id="loading-spinner" style="display: none;">Loading...</div>
 
     <script>
-        document.getElementById('render-button').addEventListener('click', renderWebsite);
+        document.getElementById('fetch-btn').addEventListener('click', () => {
+            renderWebsite();
+        });
 
         function renderWebsite() {
             const urlInput = document.getElementById("url");
@@ -42,7 +46,7 @@
             if (cachedContent) {
                 displayContent(renderedContent, cachedContent);
                 loadingSpinner.style.display = "none";
-                return; // Exit early if content is cached
+                return;
             }
 
             renderedContent.innerHTML = "";
@@ -53,29 +57,25 @@
 
         function fetchAndRender(url, renderedContent, loadingSpinner, retryCount = 3) {
             fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url))
-                .then((response) => {
+                .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! Status: ${response.status}`);
                     }
                     return response.text();
                 })
-                .then((data) => {
-                    // Cache the fetched content
+                .then(data => {
                     sessionStorage.setItem(url, data);
-
-                    // Render the content
                     displayContent(renderedContent, data);
                     loadingSpinner.style.display = "none";
                 })
-                .catch((error) => {
+                .catch(error => {
                     if (retryCount > 0) {
                         const delay = 1000 * Math.pow(2, 3 - retryCount);
                         setTimeout(() => {
                             fetchAndRender(url, renderedContent, loadingSpinner, retryCount - 1);
                         }, delay);
                     } else {
-                        renderedContent.innerHTML = `
-                            <p style="color: red;">Error: Failed to load website content. ${error.message}</p>`;
+                        renderedContent.innerHTML = `<p style="color: red;">Error: Failed to load website content. ${error.message}</p>`;
                         loadingSpinner.style.display = "none";
                     }
                 });
@@ -85,44 +85,35 @@
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlContent, 'text/html');
 
-            // Clear previous content
-            renderedContent.innerHTML = '';
-
             // Handle and inject external CSS
-            const stylesheets = doc.querySelectorAll('link[rel="stylesheet"]');
-            stylesheets.forEach(link => {
+            doc.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
                 const stylesheetLink = document.createElement('link');
                 stylesheetLink.rel = 'stylesheet';
-                stylesheetLink.href = link.href.startsWith('http') ? link.href : new URL(link.href, url).href;
+                stylesheetLink.href = link.href;
                 document.head.appendChild(stylesheetLink);
             });
 
             // Handle inline CSS
-            const styleTags = doc.querySelectorAll('style');
-            styleTags.forEach(style => {
+            doc.querySelectorAll('style').forEach(style => {
                 const newStyle = document.createElement('style');
                 newStyle.textContent = style.textContent;
                 document.head.appendChild(newStyle);
             });
 
             // Handle and inject external JS
-            const scripts = doc.querySelectorAll('script');
-            scripts.forEach(script => {
+            doc.querySelectorAll('script').forEach(script => {
                 const newScript = document.createElement('script');
                 if (script.src) {
-                    newScript.src = script.src.startsWith('http') ? script.src : new URL(script.src, url).href;
-                    newScript.onload = () => {
-                        console.log('Script loaded and executed:', newScript.src);
-                    };
+                    newScript.src = script.src;
+                    newScript.onload = () => console.log('Script loaded:', newScript.src);
                 } else {
                     newScript.textContent = script.textContent;
                 }
                 document.body.appendChild(newScript);
             });
 
-            // Inject the HTML content (excluding script tags already handled)
-            const bodyContent = doc.body.cloneNode(true);
-            renderedContent.appendChild(bodyContent);
+            // Render the HTML content (excluding scripts already handled)
+            renderedContent.innerHTML = doc.body.innerHTML;
         }
     </script>
 </body>
